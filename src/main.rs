@@ -20,14 +20,14 @@ fn main() -> anyhow::Result<()> {
 
         match odido.mbs_left() {
             Ok(mb_left) => {
-                println!("{mb_left} MB's left");
+                println!("{mb_left} MB's beschikbaar");
                 if mb_left < mb_threshold {
                     if let Err(e) = odido.request_bundle() {
-                        eprintln!("failed to request bundle: {e}");
+                        eprintln!("Fout bij aanvragen van extra databundel: {e}");
                     }
                 }
             }
-            Err(e) => eprintln!("failed to check MB's left: {e}"),
+            Err(e) => eprintln!("Fout bij opvragen hoeveel MB's beschikbaar: {e}"),
         }
 
         let sleep_for: Duration = interval.saturating_sub(started.elapsed());

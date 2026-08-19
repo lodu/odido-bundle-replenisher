@@ -15,9 +15,9 @@ pub struct Config {
 
 impl Config {
     pub fn from_env() -> Result<Self> {
-        let authorization_token =
-            std::env::var("AUTHORIZATIONTOKEN").context("AUTHORIZATIONTOKEN env var not set")?;
-        let msisdn = std::env::var("MSISDN").context("MSISDN env var not set")?;
+        let authorization_token = std::env::var("AUTHORIZATIONTOKEN")
+            .context("AUTHORIZATIONTOKEN niet gevonden in env")?;
+        let msisdn = std::env::var("MSISDN").context("MSISDN niet gevonden in env")?;
 
         let minutes: u64 = std::env::var("UPDATE_INTERVAL")
             .ok()
