@@ -1,5 +1,5 @@
 services:
-  o-b-r:
+  odido-bundle-replenisher:
     image: ghcr.io/lodu/odido-bundle-replenisher:main
     restart: unless-stopped
     pull_policy: always
