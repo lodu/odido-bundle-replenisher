@@ -12,7 +12,15 @@ MSISDN=+3161234567890
 
 `AUTHORIZATION_TOKEN` kun je verkrijgen door het programma op te starten zonder `AUTHORIZATION_TOKEN` waarde en de instructies te volgen. Zie hieronder.
 
-### Docker Compose
+
+## Usage
+Drie opties:
+1. docker compose
+2. docker
+3. binary
+
+
+### 1. Docker Compose
 
 Zet de environmentvariabelen in `.env`, zie [`.env.example`](.env.example).
 
@@ -28,7 +36,7 @@ docker compose run --rm odido-bundle-replenisher
 
 Volg instructies en zet de waarde in je `.env`.
 
-### Docker
+### 2. Docker
 
 Zonder Compose kun je de container op de achtergrond draaien met:
 
@@ -42,6 +50,6 @@ Bij ontbrekende `AUTHORIZATION_TOKEN` of `REFRESH_TOKEN`:
 docker run --rm -it --env-file .env ghcr.io/lodu/odido-bundle-replenisher:main
 ```
 
-### Binaries
+### 3. Binaries
 
-Zet de environmentvariabelen in een `.env`-bestand naast de binary. Binaries worden gebouwd door [GitHub Actions](https://github.com/lodu/odido-bundle-replenisher/actions).
+Zet de environmentvariabelen in een `.env`-bestand naast de binary. Binaries worden gebouwd door [GitHub Actions](https://github.com/lodu/odido-bundle-replenisher/actions). Klik hierbij op de laatste run van `Build artifacts` en scroll naar beneden voor artifacts.
