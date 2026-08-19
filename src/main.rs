@@ -71,10 +71,13 @@ fn main() -> anyhow::Result<()> {
                 "Open deze URL om in te loggen:\n{}\n\nPlak daarna de URL hier OF herstart de app met de token (REFRESH_TOKEN env variable).",
                 config.login_url()?
             );
-            io::stdout().flush().unwrap();
+            io::stdout().flush()?;
 
             let mut answer = String::new();
-            io::stdin().read_line(&mut answer).unwrap();
+            let bytes_read = io::stdin().read_line(&mut answer)?;
+            if bytes_read == 0 {
+                anyhow::bail!("Stel REFRESH_TOKEN in (of -it flag bij docker commando).");
+            }
 
             let answer = answer.trim();
 
@@ -110,7 +113,7 @@ fn main() -> anyhow::Result<()> {
     loop {
         let started = Instant::now();
 
-        match odido.mbCHECK_INTERVALs_left() {
+        match odido.mbs_left() {
             Ok(mb_left) => {
                 println!("Nog {mb_left} MB's beschikbaar.");
                 if mb_left < mb_threshold {
