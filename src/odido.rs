@@ -1,22 +1,13 @@
 use crate::config::Config;
-use crate::http::{HttpError, get_json, post_json};
+use crate::http::{get_json, post_json, HttpError};
 use crate::models::{Bundle, BundlesResponse, SubscriptionsResource, SubscriptionsResponse};
 use reqwest::blocking::Client;
-use reqwest::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE, HeaderMap, HeaderValue, USER_AGENT};
+use reqwest::header::{HeaderMap, HeaderValue, ACCEPT, AUTHORIZATION, CONTENT_TYPE, USER_AGENT};
 
 pub struct Odido {
     client: Client,
     config: Config,
     subscription_url: Option<String>,
-}
-
-pub fn calculate_mb_left(bundles: &[Bundle]) -> u32 {
-    bundles
-        .iter()
-        .filter(|b| b.zone_color == "NL")
-        .map(|b| b.remaining.value / 1024.0)
-        .sum::<f64>()
-        .floor() as u32
 }
 
 impl Odido {
@@ -91,6 +82,15 @@ impl Odido {
         Ok(url)
     }
 
+    fn calculate_mb_left(bundles: &[Bundle]) -> u32 {
+        bundles
+            .iter()
+            .filter(|b| b.zone_color == "NL")
+            .map(|b| b.remaining.value / 1024.0)
+            .sum::<f64>()
+            .floor() as u32
+    }
+
     pub fn mbs_left(&mut self) -> Result<u32, HttpError> {
         let url = self.resolve_subscription_url()?;
         let response: BundlesResponse = get_json(
@@ -101,7 +101,7 @@ impl Odido {
             self.config.http_retry_delay_step,
         )?;
 
-        Ok(calculate_mb_left(&response.bundles))
+        Ok(Self::calculate_mb_left(&response.bundles))
     }
 
     pub fn request_bundle(&mut self) -> Result<(), HttpError> {

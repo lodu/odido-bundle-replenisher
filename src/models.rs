@@ -31,7 +31,6 @@ pub struct Bundle {
     pub zone_color: String,
     #[serde(rename = "Remaining")]
     pub remaining: Remaining,
-    
 }
 
 #[derive(Debug, Deserialize)]
