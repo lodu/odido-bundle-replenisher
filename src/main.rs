@@ -68,7 +68,7 @@ fn main() -> anyhow::Result<()> {
     let (mut odido, interval, mb_threshold) = match Config::from_env()? {
         LoginRequired(config) => {
             println!(
-                "Open deze URL om in te loggen:\n{}\n\nPlak daarna de URL hier OF herstart de app met de token (REFRESH_TOKEN).",
+                "Open deze URL om in te loggen:\n{}\n\nPlak daarna de URL hier OF herstart de app met de token (REFRESH_TOKEN env variable).",
                 config.login_url()?
             );
             io::stdout().flush().unwrap();
@@ -110,7 +110,7 @@ fn main() -> anyhow::Result<()> {
     loop {
         let started = Instant::now();
 
-        match odido.mbs_left() {
+        match odido.mbCHECK_INTERVALs_left() {
             Ok(mb_left) => {
                 println!("Nog {mb_left} MB's beschikbaar.");
                 if mb_left < mb_threshold {

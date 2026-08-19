@@ -3,7 +3,7 @@ Rust rewrite van [TMobile-NL-Unlimited-Bundle-Automated](https://github.com/lodu
 
 
 ## Setup
-Om het werkend te maken moet je environment bevatten:
+Om het werkend te maken moet je environment MINIMAAL bevatten:
 
 ```bash
 AUTHORIZATION_TOKEN=xxxxxxxxxx
