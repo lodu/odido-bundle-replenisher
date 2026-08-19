@@ -1,0 +1,37 @@
+name: Build artifacts
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build (${{ matrix.name }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: linux
+            runner: ubuntu-latest
+            binary: target/release/odido-bundle-replenisher
+          - name: macos
+            runner: macos-latest
+            binary: target/release/odido-bundle-replenisher
+          - name: windows
+            runner: windows-latest
+            binary: target/release/odido-bundle-replenisher.exe
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo build --release --locked
+      - uses: actions/upload-artifact@v4
+        with:
+          name: odido-bundle-replenisher-${{ matrix.name }}
+          path: ${{ matrix.binary }}
+          if-no-files-found: error

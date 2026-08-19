@@ -700,7 +700,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "odido-bundle-automation"
+name = "odido-bundle-replenisher"
 version = "0.1.0"
 dependencies = [
  "anyhow",
