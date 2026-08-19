@@ -29,25 +29,19 @@ pub fn get_json<T: DeserializeOwned>(
     )
 }
 
-pub fn post_json<T: DeserializeOwned>(
+pub fn post_empty(
     client: &Client,
     url: &str,
     headers: HeaderMap,
     body: String,
-    max_retries: u32,
-    retry_delay_stepsize: u32,
-) -> Result<T, HttpError> {
-    request_with_retry(
-        || {
-            client
-                .post(url)
-                .headers(headers.clone())
-                .body(body.clone())
-                .send()
-        },
-        max_retries,
-        retry_delay_stepsize,
-    )
+) -> Result<(), HttpError> {
+    client
+        .post(url)
+        .headers(headers)
+        .body(body)
+        .send()?
+        .error_for_status()?;
+    Ok(())
 }
 
 fn request_with_retry<T: DeserializeOwned>(

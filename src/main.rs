@@ -82,7 +82,7 @@ fn main() -> anyhow::Result<()> {
             let token = url
                 .query_pairs()
                 .find_map(|(name, value)| (name == "token").then_some(value))
-                .context("URL bevat geen token.")?;
+                .context("Ingevoerde URL bevat geen token.")?;
 
             let refresh_token = config.refresh_token(&token)?;
             let authorization_token = create_authorization_token(OAuthConfig {
@@ -101,7 +101,7 @@ fn main() -> anyhow::Result<()> {
         }
 
         Authenticated(config) => {
-            let interval = config.update_interval;
+            let interval = config.check_interval;
             let mb_threshold = config.mb_threshold;
             (Odido::new(config), interval, mb_threshold)
         }
@@ -112,10 +112,12 @@ fn main() -> anyhow::Result<()> {
 
         match odido.mbs_left() {
             Ok(mb_left) => {
-                println!("{mb_left} MB's beschikbaar");
+                println!("Nog {mb_left} MB's beschikbaar.");
                 if mb_left < mb_threshold {
                     if let Err(e) = odido.request_bundle() {
-                        eprintln!("Fout bij aanvragen van extra databundel: {e}");
+                        eprintln!(
+                            "Fout bij aanvragen van extra databundel. Dit gebeurt ook als je nog te veel MB's hebt: {e}"
+                        );
                     }
                 }
             }

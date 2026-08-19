@@ -30,8 +30,7 @@ struct LoginResponse {
 
 impl LoginConfig {
     pub fn login_url(&self) -> Result<String> {
-        let fernet =
-            Fernet::new(&self.odido_fernet_key).context("Ongeldige Odido Fernet-sleutel")?;
+        let fernet = Fernet::new(&self.odido_fernet_key).unwrap();
         let encrypted_oauth_key = fernet.encrypt(self.odido_oauth_key.as_bytes());
 
         Ok(format!(
@@ -42,28 +41,19 @@ impl LoginConfig {
     }
 
     pub fn refresh_token(&self, encrypted_login_response: &str) -> Result<String> {
-        let fernet =
-            Fernet::new(&self.odido_fernet_key).context("Ongeldige Odido Fernet-sleutel")?;
-        let login_response: LoginResponse = serde_json::from_slice(
-            &fernet
-                .decrypt(encrypted_login_response)
-                .context("Odido-loginresponse kon niet worden ontsleuteld")?,
-        )
-        .context("Ontsleutelde Odido-loginresponse bevat geen geldige JSON")?;
+        let fernet = Fernet::new(&self.odido_fernet_key).unwrap();
+        let login_response: LoginResponse =
+            serde_json::from_slice(&fernet.decrypt(encrypted_login_response).unwrap()).unwrap();
 
-        String::from_utf8(
-            fernet
-                .decrypt(&login_response.access_token)
-                .context("Odido authorization code kon niet worden ontsleuteld")?,
-        )
-        .context("Odido authorization code is geen geldige UTF-8")
+        String::from_utf8(fernet.decrypt(&login_response.access_token).unwrap())
+            .context("Odido authorization code is geen geldige UTF-8")
     }
 }
 
 pub struct Config {
     pub authorization_token: String,
     pub msisdn: String,
-    pub update_interval: Duration,
+    pub check_interval: Duration,
     pub odido_api_url: String,
     pub odido_user_agent: String,
     pub odido_buying_code: String,
@@ -112,7 +102,7 @@ impl Config {
 
         let msisdn = std::env::var("MSISDN").context("MSISDN niet gevonden in env")?;
 
-        let minutes: u64 = std::env::var("UPDATE_INTERVAL")
+        let minutes: u64 = std::env::var("CHECK_INTERVAL")
             .ok()
             .and_then(|s: String| s.parse().ok())
             .unwrap_or(5);
@@ -141,7 +131,7 @@ impl Config {
         Ok(StartupConfig::Authenticated(Config {
             authorization_token,
             msisdn,
-            update_interval: Duration::from_secs(minutes * 60),
+            check_interval: Duration::from_secs(minutes * 60),
             odido_api_url,
             odido_user_agent,
             odido_buying_code,

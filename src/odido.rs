@@ -1,8 +1,8 @@
 use crate::config::Config;
-use crate::http::{get_json, post_json, HttpError};
+use crate::http::{HttpError, get_json, post_empty};
 use crate::models::{Bundle, BundlesResponse, SubscriptionsResource, SubscriptionsResponse};
 use reqwest::blocking::Client;
-use reqwest::header::{HeaderMap, HeaderValue, ACCEPT, AUTHORIZATION, CONTENT_TYPE, USER_AGENT};
+use reqwest::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE, HeaderMap, HeaderValue, USER_AGENT};
 
 pub struct Odido {
     client: Client,
@@ -112,15 +112,8 @@ impl Odido {
         let body =
             serde_json::json!({ "Bundles": [{ "BuyingCode": &self.config.odido_buying_code }] })
                 .to_string();
-        let _: serde_json::Value = post_json(
-            &self.client,
-            &url,
-            headers,
-            body,
-            self.config.http_max_retries,
-            self.config.http_retry_delay_step,
-        )?;
-        println!("New bundle has been requested");
+        post_empty(&self.client, &url, headers, body)?;
+        println!("Success: Nieuwe bundel is aangevraagd.");
         Ok(())
     }
 }
