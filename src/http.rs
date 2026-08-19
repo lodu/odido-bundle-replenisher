@@ -1,5 +1,5 @@
 use reqwest::blocking::{Client, Response};
-use reqwest::header::HeaderMap;
+use reqwest::header::{HeaderMap, InvalidHeaderValue};
 use serde::de::DeserializeOwned;
 use std::time::Duration;
 use thiserror::Error;
@@ -9,6 +9,8 @@ use thiserror::Error;
 pub enum HttpError {
     #[error("request failed: {0}")]
     Request(#[from] reqwest::Error),
+    #[error("invalid HTTP header value: {0}")]
+    Header(#[from] InvalidHeaderValue),
     #[error("giving up after {0} retries")]
     RetriesExhausted(u32),
     #[error("unexpected response shape: {0}")]

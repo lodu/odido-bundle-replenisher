@@ -1,17 +1,15 @@
 use anyhow::{Context, Result};
-use fernet::Fernet;
-use serde::Deserialize;
 use std::time::Duration;
 
-pub enum StartupConfig {
-    Authenticated(Config),
-    OAuthRequired(OAuthConfig),
+pub enum StartupMode {
+    Authenticated(AuthenticatedConfig),
+    AuthorizationCode(AuthorizationCodeConfig),
     LoginRequired(LoginConfig),
 }
 
-pub struct OAuthConfig {
+pub struct AuthorizationCodeConfig {
     pub odido_api_url: String,
-    pub refresh_token: String,
+    pub authorization_code: String,
     pub odido_oauth_key: String,
 }
 
@@ -22,35 +20,7 @@ pub struct LoginConfig {
     pub odido_oauth_key: String,
 }
 
-#[derive(Deserialize)]
-#[serde(rename_all = "PascalCase")]
-struct LoginResponse {
-    access_token: String,
-}
-
-impl LoginConfig {
-    pub fn login_url(&self) -> Result<String> {
-        let fernet = Fernet::new(&self.odido_fernet_key).unwrap();
-        let encrypted_oauth_key = fernet.encrypt(self.odido_oauth_key.as_bytes());
-
-        Ok(format!(
-            "{url}/login?returnSystem=app&nav=off&token={token}",
-            url = self.odido_url,
-            token = encrypted_oauth_key
-        ))
-    }
-
-    pub fn refresh_token(&self, encrypted_login_response: &str) -> Result<String> {
-        let fernet = Fernet::new(&self.odido_fernet_key).unwrap();
-        let login_response: LoginResponse =
-            serde_json::from_slice(&fernet.decrypt(encrypted_login_response).unwrap()).unwrap();
-
-        String::from_utf8(fernet.decrypt(&login_response.access_token).unwrap())
-            .context("Odido authorization code is geen geldige UTF-8")
-    }
-}
-
-pub struct Config {
+pub struct AuthenticatedConfig {
     pub authorization_token: String,
     pub msisdn: String,
     pub check_interval: Duration,
@@ -62,8 +32,8 @@ pub struct Config {
     pub http_retry_delay_step: u32,
 }
 
-impl Config {
-    pub fn from_env() -> Result<StartupConfig> {
+impl AuthenticatedConfig {
+    pub fn from_env() -> Result<StartupMode> {
         let odido_url: String =
             std::env::var("ODIDO_URL").unwrap_or_else(|_| "https://odido.nl".to_owned());
 
@@ -79,14 +49,14 @@ impl Config {
             Ok(token) => token,
             Err(std::env::VarError::NotPresent) => match std::env::var("REFRESH_TOKEN") {
                 Ok(refresh_token) => {
-                    return Ok(StartupConfig::OAuthRequired(OAuthConfig {
+                    return Ok(StartupMode::AuthorizationCode(AuthorizationCodeConfig {
                         odido_api_url,
-                        refresh_token,
+                        authorization_code: refresh_token,
                         odido_oauth_key,
                     }));
                 }
                 Err(std::env::VarError::NotPresent) => {
-                    return Ok(StartupConfig::LoginRequired(LoginConfig {
+                    return Ok(StartupMode::LoginRequired(LoginConfig {
                         odido_url,
                         odido_api_url,
                         odido_fernet_key,
@@ -128,7 +98,7 @@ impl Config {
             .and_then(|s: String| s.parse().ok())
             .unwrap_or(10);
 
-        Ok(StartupConfig::Authenticated(Config {
+        Ok(StartupMode::Authenticated(AuthenticatedConfig {
             authorization_token,
             msisdn,
             check_interval: Duration::from_secs(minutes * 60),
