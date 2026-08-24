@@ -41,12 +41,18 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/metadata-action@v5
+        id: meta
+        with:
+          images: ${{ env.IMAGE_NAME }}
+          tags: type=raw,value=${{ github.ref_name }}-${{ matrix.architecture }}
       - uses: docker/build-push-action@v6
         with:
           context: .
           push: true
           platforms: ${{ matrix.platform }}
-          tags: ${{ env.IMAGE_NAME }}:${{ github.ref_name }}-${{ matrix.architecture }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=container-${{ matrix.architecture }}
           cache-to: type=gha,mode=max,scope=container-${{ matrix.architecture }}
 
