@@ -1,6 +1,6 @@
 services:
   odido-bundle-replenisher:
-    image: ghcr.io/lodu/odido-bundle-replenisher:main
+    image: ghcr.io/lodu/odido-bundle-replenisher:latest
     restart: unless-stopped
     pull_policy: always
     tty: true

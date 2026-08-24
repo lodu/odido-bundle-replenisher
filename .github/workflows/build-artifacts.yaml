@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - main
+    tags:
+      - "v*.*.*"
   workflow_dispatch:
 
 permissions:
@@ -24,12 +26,15 @@ jobs:
           - name: linux
             runner: ubuntu-latest
             binary: target/release/odido-bundle-replenisher
+            archive: odido-bundle-replenisher-linux.tar.gz
           - name: macos
             runner: macos-latest
             binary: target/release/odido-bundle-replenisher
+            archive: odido-bundle-replenisher-macos.tar.gz
           - name: windows
             runner: windows-latest
             binary: target/release/odido-bundle-replenisher.exe
+            archive: odido-bundle-replenisher-windows.zip
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -40,3 +45,34 @@ jobs:
           name: odido-bundle-replenisher-${{ matrix.name }}
           path: ${{ matrix.binary }}
           if-no-files-found: error
+      - name: Linux/MacOS archiving on release
+        if: startsWith(github.ref, 'refs/tags/') && runner.os != 'Windows'
+        run: tar -czf ${{ matrix.archive }} -C $(dirname ${{ matrix.binary }}) $(basename ${{ matrix.binary }})
+      - name: Windows archiving on release
+        if: startsWith(github.ref, 'refs/tags/') && runner.os == 'Windows'
+        run: Compress-Archive -Path ${{ matrix.binary }} -DestinationPath ${{ matrix.archive }}
+      - name: Upload release archive
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.name }}
+          path: ${{ matrix.archive }}
+          if-no-files-found: error
+
+  release:
+    name: Create release
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          path: dist
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true
