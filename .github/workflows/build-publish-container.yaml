@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - main
+    tags:
+      - "v*.*.*"
   workflow_dispatch:
 
 env:
@@ -44,7 +46,7 @@ jobs:
           context: .
           push: true
           platforms: ${{ matrix.platform }}
-          tags: ${{ env.IMAGE_NAME }}:main-${{ matrix.architecture }}
+          tags: ${{ env.IMAGE_NAME }}:${{ github.ref_name }}-${{ matrix.architecture }}
           cache-from: type=gha,scope=container-${{ matrix.architecture }}
           cache-to: type=gha,mode=max,scope=container-${{ matrix.architecture }}
 
@@ -59,8 +61,16 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - uses: docker/setup-buildx-action@v3
-      - run: >
-          docker buildx imagetools create
-          --tag "$IMAGE_NAME:main"
-          "$IMAGE_NAME:main-amd64"
-          "$IMAGE_NAME:main-arm64"
+      - name: Publish manifest
+        run: |
+          tag="$GITHUB_REF_NAME"
+          docker buildx imagetools create \
+            --tag "$IMAGE_NAME:$tag" \
+            "$IMAGE_NAME:$tag-amd64" \
+            "$IMAGE_NAME:$tag-arm64"
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            docker buildx imagetools create \
+              --tag "$IMAGE_NAME:latest" \
+              "$IMAGE_NAME:$tag-amd64" \
+              "$IMAGE_NAME:$tag-arm64"
+          fi

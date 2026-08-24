@@ -43,12 +43,12 @@ Zonder Compose kun je de container op de achtergrond draaien met:
 
 ```bash
 docker run -d --name odido-bundle-replenisher --restart unless-stopped \
-  --env-file .env ghcr.io/lodu/odido-bundle-replenisher:main
+  --env-file .env ghcr.io/lodu/odido-bundle-replenisher:latest
 ```
 
 Bij ontbrekende `AUTHORIZATION_TOKEN` of `REFRESH_TOKEN`:
 ```bash
-docker run --rm -it --env-file .env ghcr.io/lodu/odido-bundle-replenisher:main
+docker run --rm -it --env-file .env ghcr.io/lodu/odido-bundle-replenisher:latest
 ```
 
 ### 3. Binaries
