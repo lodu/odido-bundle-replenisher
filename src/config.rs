@@ -7,6 +7,35 @@ pub enum StartupMode {
     LoginRequired(LoginConfig),
 }
 
+#[derive(Clone, Copy)]
+pub enum IntervalMode {
+    Dynamic {
+        interval_below_threshold: Duration,
+        interval_above_threshold: Duration,
+        threshold: u32, // MB
+    },
+    Static(Duration),
+}
+
+impl IntervalMode {
+    pub fn determine_duration(&self, mbs_left: u32) -> Duration {
+        match self {
+            IntervalMode::Dynamic {
+                interval_below_threshold,
+                interval_above_threshold,
+                threshold,
+            } => {
+                if mbs_left < *threshold {
+                    *interval_below_threshold
+                } else {
+                    *interval_above_threshold
+                }
+            }
+            IntervalMode::Static(duration) => *duration,
+        }
+    }
+}
+
 pub struct AuthorizationCodeConfig {
     pub odido_api_url: String,
     pub authorization_code: String,
@@ -23,7 +52,7 @@ pub struct LoginConfig {
 pub struct AuthenticatedConfig {
     pub authorization_token: String,
     pub msisdn: String,
-    pub check_interval: Duration,
+    pub interval_mode: IntervalMode,
     pub odido_api_url: String,
     pub odido_user_agent: String,
     pub odido_buying_code: String,
@@ -32,30 +61,54 @@ pub struct AuthenticatedConfig {
     pub http_retry_delay_step: u32,
 }
 
+fn parse_env<T: std::str::FromStr>(key: &str) -> Option<T> {
+    std::env::var(key).ok()?.parse().ok()
+}
+
+fn parse_env_with_default<T: std::str::FromStr>(key: &str, default: T) -> T {
+    parse_env(key).unwrap_or(default)
+}
+
+fn determine_interval_config() -> IntervalMode {
+    if let Some(minutes) = parse_env::<u64>("CHECK_INTERVAL") {
+        return IntervalMode::Static(Duration::from_secs(minutes * 60));
+    }
+
+    let threshold_mb: u32 = parse_env_with_default("DYNAMIC_INTERVAL_MB_THRESHOLD", 4000);
+    let interval_below_threshold_minutes: u64 = parse_env_with_default("DYNAMIC_INTERVAL_LOW", 1);
+    let interval_above_threshold_minutes: u64 = parse_env_with_default("DYNAMIC_INTERVAL_HIGH", 10);
+
+    IntervalMode::Dynamic {
+        interval_below_threshold: Duration::from_secs(interval_below_threshold_minutes * 60),
+        interval_above_threshold: Duration::from_secs(interval_above_threshold_minutes * 60),
+        threshold: threshold_mb,
+    }
+}
+
 impl AuthenticatedConfig {
     pub fn from_env() -> Result<StartupMode> {
-        let odido_url: String =
-            std::env::var("ODIDO_URL").unwrap_or_else(|_| "https://odido.nl".to_owned());
-
-        let odido_fernet_key: String = std::env::var("ODIDO_FERNET_KEY")
-            .unwrap_or_else(|_| "afIqRZm6iSev4zWysNGAjR6fCrOMf5GQqhKFfmXkgOU".to_owned());
+        let odido_url: String = parse_env_with_default("ODIDO_URL", "https://odido.nl".to_owned());
+        let odido_fernet_key: String = parse_env_with_default(
+            "ODIDO_FERNET_KEY",
+            "afIqRZm6iSev4zWysNGAjR6fCrOMf5GQqhKFfmXkgOU".to_owned(),
+        );
         let odido_oauth_key: String =
-            std::env::var("ODIDO_OAUTH_KEY").unwrap_or_else(|_| "9havvat6hm0b962i".to_owned());
+            parse_env_with_default("ODIDO_OAUTH_KEY", "9havvat6hm0b962i".to_owned());
 
         let odido_api_url: String =
-            std::env::var("ODIDO_API_URL").unwrap_or_else(|_| "https://capi.odido.nl".to_owned());
+            parse_env_with_default("ODIDO_API_URL", "https://capi.odido.nl".to_owned());
 
-        let authorization_token = match std::env::var("AUTHORIZATION_TOKEN") {
-            Ok(token) => token,
-            Err(std::env::VarError::NotPresent) => match std::env::var("REFRESH_TOKEN") {
-                Ok(refresh_token) => {
+        let authorization_token: String = match parse_env::<String>("AUTHORIZATION_TOKEN") {
+            Some(token) => token,
+            None => match parse_env::<String>("REFRESH_TOKEN") {
+                Some(refresh_token) => {
                     return Ok(StartupMode::AuthorizationCode(AuthorizationCodeConfig {
                         odido_api_url,
                         authorization_code: refresh_token,
                         odido_oauth_key,
                     }));
                 }
-                Err(std::env::VarError::NotPresent) => {
+                None => {
                     return Ok(StartupMode::LoginRequired(LoginConfig {
                         odido_url,
                         odido_api_url,
@@ -63,45 +116,29 @@ impl AuthenticatedConfig {
                         odido_oauth_key,
                     }));
                 }
-                Err(error) => {
-                    return Err(error).context("REFRESH_TOKEN kon niet worden gelezen");
-                }
             },
-            Err(error) => return Err(error).context("AUTHORIZATION_TOKEN kon niet worden gelezen"),
         };
 
-        let msisdn = std::env::var("MSISDN").context("MSISDN niet gevonden in env")?;
+        let msisdn = parse_env::<String>("MSISDN").context("MSISDN niet gevonden in env")?;
 
-        let minutes: u64 = std::env::var("CHECK_INTERVAL")
-            .ok()
-            .and_then(|s: String| s.parse().ok())
-            .unwrap_or(5);
-
-        let odido_user_agent: String = std::env::var("ODIDO_USER_AGENT")
-            .unwrap_or_else(|_| "ODIDO 8.0.0 (Android 12; 12)".to_owned());
+        let odido_user_agent: String = parse_env_with_default(
+            "ODIDO_USER_AGENT",
+            "ODIDO 8.0.0 (Android 12; 12)".to_owned(),
+        );
 
         let odido_buying_code: String =
-            std::env::var("ODIDO_BUYING_CODE").unwrap_or_else(|_| "A0DAY01".to_owned());
+            parse_env_with_default("ODIDO_BUYING_CODE", "A0DAY01".to_owned());
 
-        let mb_threshold = std::env::var("MB_THRESHOLD")
-            .ok()
-            .and_then(|s: String| s.parse().ok())
-            .unwrap_or(2000);
+        let mb_threshold = parse_env_with_default("MB_THRESHOLD", 2000);
 
-        let http_max_retries = std::env::var("HTTP_MAX_RETRIES")
-            .ok()
-            .and_then(|s: String| s.parse().ok())
-            .unwrap_or(10);
+        let http_max_retries = parse_env_with_default("HTTP_MAX_RETRIES", 10);
 
-        let http_retry_delay_step = std::env::var("HTTP_RETRY_DELAY_STEP")
-            .ok()
-            .and_then(|s: String| s.parse().ok())
-            .unwrap_or(10);
+        let http_retry_delay_step = parse_env_with_default("HTTP_RETRY_DELAY_STEP", 10);
 
         Ok(StartupMode::Authenticated(AuthenticatedConfig {
             authorization_token,
             msisdn,
-            check_interval: Duration::from_secs(minutes * 60),
+            interval_mode: determine_interval_config(),
             odido_api_url,
             odido_user_agent,
             odido_buying_code,
