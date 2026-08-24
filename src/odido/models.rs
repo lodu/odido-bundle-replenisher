@@ -1,18 +1,18 @@
 use serde::Deserialize;
 
-#[derive(Debug, Deserialize)]
+#[derive(Deserialize)]
 pub struct Resource {
     #[serde(rename = "Url")]
     pub url: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Deserialize)]
 pub struct SubscriptionsResource {
     #[serde(rename = "Resources")]
     pub resources: Vec<Resource>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Deserialize)]
 pub struct Subscription {
     #[serde(rename = "MSISDN")]
     pub msisdn: String,
@@ -20,12 +20,12 @@ pub struct Subscription {
     pub subscription_url: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Deserialize)]
 pub struct SubscriptionsResponse {
     pub subscriptions: Vec<Subscription>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Deserialize)]
 pub struct Bundle {
     #[serde(rename = "ZoneColor")]
     pub zone_color: String,
@@ -33,13 +33,13 @@ pub struct Bundle {
     pub remaining: Remaining,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Deserialize)]
 pub struct Remaining {
     #[serde(rename = "Value")]
     pub value: f64,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Deserialize)]
 pub struct BundlesResponse {
     #[serde(rename = "Bundles")]
     pub bundles: Vec<Bundle>,

@@ -12,6 +12,7 @@ MSISDN=+3161234567890
 
 `AUTHORIZATION_TOKEN` kun je verkrijgen door het programma op te starten zonder `AUTHORIZATION_TOKEN` waarde en de instructies te volgen. Zie hieronder.
 
+Waarschijnlijk hoeft je environment ook niet meer te bevatten. Zie [ENVIRONMENT.md](./ENVIRONMENT.md) voor alle opties.
 
 ## Usage
 Drie opties:

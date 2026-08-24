@@ -13,7 +13,7 @@ use crate::config::StartupMode::{Authenticated, AuthorizationCode, LoginRequired
 fn main() -> anyhow::Result<()> {
     dotenvy::dotenv().ok();
 
-    let (mut odido, interval, mb_threshold) = match AuthenticatedConfig::from_env()? {
+    let (mut odido, interval_mode, mb_threshold) = match AuthenticatedConfig::from_env()? {
         LoginRequired(config) => {
             println!(
                 "Open deze URL om in te loggen:\n{}\n\nPlak daarna de URL hier OF herstart de app met de token (REFRESH_TOKEN env variable).",
@@ -52,7 +52,7 @@ fn main() -> anyhow::Result<()> {
         }
 
         Authenticated(config) => {
-            let interval = config.check_interval;
+            let interval = config.interval_mode;
             let mb_threshold = config.mb_threshold;
             (OdidoClient::new(config), interval, mb_threshold)
         }
@@ -61,19 +61,23 @@ fn main() -> anyhow::Result<()> {
     loop {
         let started = Instant::now();
 
-        match odido.mbs_left() {
+        let interval = match odido.mbs_left() {
             Ok(mb_left) => {
                 println!("Nog {mb_left} MB's beschikbaar.");
-                if mb_left < mb_threshold {
-                    if let Err(e) = odido.request_bundle() {
-                        eprintln!(
-                            "Fout bij aanvragen van extra databundel. Dit gebeurt ook als je nog te veel MB's hebt: {e}"
-                        );
-                    }
+                if mb_left < mb_threshold
+                    && let Err(e) = odido.request_bundle()
+                {
+                    eprintln!(
+                        "Fout bij aanvragen van extra databundel. Dit gebeurt ook als je nog te veel MB's hebt: {e}"
+                    );
                 }
+                interval_mode.determine_duration(mb_left)
             }
-            Err(e) => eprintln!("Fout bij opvragen hoeveel MB's beschikbaar: {e}"),
-        }
+            Err(e) => {
+                eprintln!("Fout bij opvragen hoeveel MB's beschikbaar: {e}");
+                interval_mode.determine_duration(0) // Default naar laagste bij Dynamic
+            }
+        };
 
         let sleep_for: Duration = interval.saturating_sub(started.elapsed());
         std::thread::sleep(sleep_for);
