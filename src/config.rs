@@ -1,5 +1,32 @@
 use anyhow::{Context, Result};
+use clap::{ArgAction, Parser};
 use std::time::Duration;
+
+#[derive(Clone, Copy)]
+pub enum RunMode {
+    Once,
+    Loop,
+}
+
+#[derive(Parser)]
+#[command(version, about)]
+pub struct Cli {
+    /// +31 pre-fixed telefoonnummer.
+    #[arg(short, long)]
+    msisdn: Option<String>,
+
+    /// Account authorizatie token.
+    #[arg(short, long)]
+    authorization_token: Option<String>,
+
+    /// Account refresh token.
+    #[arg(short, long)]
+    refresh_token: Option<String>,
+
+    /// Draai één keer i.p.v. in een loop.
+    #[arg(short, long, action = ArgAction::SetTrue)]
+    once: bool,
+}
 
 pub enum StartupMode {
     Authenticated(AuthenticatedConfig),
@@ -59,6 +86,7 @@ pub struct AuthenticatedConfig {
     pub mb_threshold: u32,
     pub http_max_retries: u32,
     pub http_retry_delay_step: u32,
+    pub run_mode: RunMode,
 }
 
 fn parse_env<T: std::str::FromStr>(key: &str) -> Option<T> {
@@ -86,7 +114,7 @@ fn determine_interval_config() -> IntervalMode {
 }
 
 impl AuthenticatedConfig {
-    pub fn from_env() -> Result<StartupMode> {
+    pub fn from_env(cli: Cli) -> Result<StartupMode> {
         let odido_url: String = parse_env_with_default("ODIDO_URL", "https://odido.nl".to_owned());
         let odido_fernet_key: String = parse_env_with_default(
             "ODIDO_FERNET_KEY",
@@ -98,9 +126,15 @@ impl AuthenticatedConfig {
         let odido_api_url: String =
             parse_env_with_default("ODIDO_API_URL", "https://capi.odido.nl".to_owned());
 
-        let authorization_token: String = match parse_env::<String>("AUTHORIZATION_TOKEN") {
+        let authorization_token: String = match cli
+            .authorization_token
+            .or_else(|| parse_env::<String>("AUTHORIZATION_TOKEN"))
+        {
             Some(token) => token,
-            None => match parse_env::<String>("REFRESH_TOKEN") {
+            None => match cli
+                .refresh_token
+                .or_else(|| parse_env::<String>("REFRESH_TOKEN"))
+            {
                 Some(refresh_token) => {
                     return Ok(StartupMode::AuthorizationCode(AuthorizationCodeConfig {
                         odido_api_url,
@@ -119,7 +153,10 @@ impl AuthenticatedConfig {
             },
         };
 
-        let msisdn = parse_env::<String>("MSISDN").context("MSISDN niet gevonden in env")?;
+        let msisdn = cli
+            .msisdn
+            .or_else(|| parse_env::<String>("MSISDN"))
+            .context("MSISDN niet gevonden in env")?;
 
         let odido_user_agent: String = parse_env_with_default(
             "ODIDO_USER_AGENT",
@@ -135,6 +172,12 @@ impl AuthenticatedConfig {
 
         let http_retry_delay_step = parse_env_with_default("HTTP_RETRY_DELAY_STEP", 10);
 
+        let run_mode = if cli.once || parse_env_with_default("RUN_ONCE", false) {
+            RunMode::Once
+        } else {
+            RunMode::Loop
+        };
+
         Ok(StartupMode::Authenticated(AuthenticatedConfig {
             authorization_token,
             msisdn,
@@ -145,6 +188,7 @@ impl AuthenticatedConfig {
             mb_threshold,
             http_max_retries,
             http_retry_delay_step,
+            run_mode,
         }))
     }
 }

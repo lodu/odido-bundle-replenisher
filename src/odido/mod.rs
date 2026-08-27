@@ -16,6 +16,16 @@ pub struct OdidoClient {
     subscription_url: Option<String>,
 }
 
+pub enum IsReplenished {
+    NotReplenished {
+        mb_left: u32,
+        mb_left_to_replenish: u32,
+    },
+    Replenished {
+        mb_left: u32,
+    },
+}
+
 impl OdidoClient {
     pub fn new(config: AuthenticatedConfig) -> Self {
         Self {
@@ -97,7 +107,7 @@ impl OdidoClient {
             .floor() as u32
     }
 
-    pub fn mbs_left(&mut self) -> Result<u32, HttpError> {
+    fn mbs_left(&mut self) -> Result<u32, HttpError> {
         let url = self.resolve_subscription_url()?;
         let response: BundlesResponse = get_json(
             &self.client,
@@ -110,7 +120,7 @@ impl OdidoClient {
         Ok(Self::calculate_mb_left(&response.bundles))
     }
 
-    pub fn request_bundle(&mut self) -> Result<(), HttpError> {
+    fn request_bundle(&mut self) -> Result<(), HttpError> {
         let url = self.resolve_subscription_url()?;
         let mut headers = self.auth_headers()?;
         headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
@@ -119,7 +129,21 @@ impl OdidoClient {
             serde_json::json!({ "Bundles": [{ "BuyingCode": &self.config.odido_buying_code }] })
                 .to_string();
         post_empty(&self.client, &url, headers, body)?;
-        println!("Success: Nieuwe bundel is aangevraagd.");
         Ok(())
+    }
+
+    pub fn replenish_if_needed(&mut self) -> Result<IsReplenished, HttpError> {
+        let mb_left = self.mbs_left()?;
+        if mb_left >= self.config.mb_threshold {
+            return Ok(IsReplenished::NotReplenished {
+                mb_left,
+                mb_left_to_replenish: mb_left - self.config.mb_threshold,
+            });
+        }
+        self.request_bundle()?;
+        let mb_left_after: u32 = self.mbs_left()?;
+        Ok(IsReplenished::Replenished {
+            mb_left: mb_left_after,
+        })
     }
 }
