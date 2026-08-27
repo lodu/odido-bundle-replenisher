@@ -16,8 +16,12 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  test:
+    name: Run tests
+    uses: ./.github/workflows/test.yaml
   build:
     name: Build (${{ matrix.name }})
+    needs: test
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false

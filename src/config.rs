@@ -192,3 +192,56 @@ impl AuthenticatedConfig {
         }))
     }
 }
+
+#[cfg(test)]
+mod determine_duration {
+    use super::*;
+
+    fn dynamic_interval() -> IntervalMode {
+        IntervalMode::Dynamic {
+            interval_below_threshold: Duration::from_secs(60),
+            interval_above_threshold: Duration::from_secs(120),
+            threshold: 42,
+        }
+    }
+
+    #[test]
+    fn above_threshold() {
+        let dynamic_interval = dynamic_interval();
+
+        assert_eq!(
+            dynamic_interval.determine_duration(20000),
+            Duration::from_secs(120)
+        );
+    }
+    #[test]
+    fn below_threshold() {
+        let dynamic_interval = dynamic_interval();
+
+        assert_eq!(
+            dynamic_interval.determine_duration(1),
+            Duration::from_secs(60)
+        );
+    }
+    #[test]
+    fn on_threshold() {
+        let dynamic_interval = dynamic_interval();
+        assert_eq!(
+            dynamic_interval.determine_duration(42),
+            Duration::from_secs(120)
+        );
+    }
+
+    #[test]
+    fn static_() {
+        let static_interval = IntervalMode::Static(Duration::from_secs(42));
+        assert_eq!(
+            static_interval.determine_duration(20000),
+            Duration::from_secs(42)
+        );
+        assert_eq!(
+            static_interval.determine_duration(0),
+            Duration::from_secs(42)
+        );
+    }
+}
