@@ -147,3 +147,51 @@ impl OdidoClient {
         })
     }
 }
+
+#[cfg(test)]
+mod calculate_mb_left {
+    use super::*;
+    use crate::odido::models::Remaining;
+
+    #[test]
+    fn multiple_different_code_bundles() {
+        let bundles: &[Bundle] = &[
+            Bundle {
+                zone_color: "NL".into(),
+                remaining: Remaining { value: 2048.0 },
+            },
+            Bundle {
+                zone_color: "DE".into(),
+                remaining: Remaining { value: 4096.0 },
+            },
+        ];
+
+        assert_eq!(OdidoClient::calculate_mb_left(bundles), 2);
+    }
+
+    #[test]
+    fn multiple_same_code_bundles() {
+        let bundles: &[Bundle] = &[
+            Bundle {
+                zone_color: "NL".into(),
+                remaining: Remaining { value: 2048.0 },
+            },
+            Bundle {
+                zone_color: "NL".into(),
+                remaining: Remaining { value: 4096.0 },
+            },
+        ];
+
+        assert_eq!(OdidoClient::calculate_mb_left(bundles), 6);
+    }
+
+    #[test]
+    fn mb_rounds_down() {
+        let bundles: &[Bundle] = &[Bundle {
+            zone_color: "NL".into(),
+            remaining: Remaining { value: 1023.0 },
+        }];
+
+        assert_eq!(OdidoClient::calculate_mb_left(bundles), 0);
+    }
+}
