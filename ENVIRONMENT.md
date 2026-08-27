@@ -3,23 +3,24 @@
 
 ### Minimaal nodig om te runnen
 
-| Variabele | Beschrijving | Default |
-|---|---|---|
-| `MSISDN` | Je telefoonnummer, bijv. `+31612345678`. | verplicht |
-| `AUTHORIZATION_TOKEN` | Sessietoken om bij Odido in te loggen. Ontbreekt hij, dan valt de app terug op `REFRESH_TOKEN`; ontbreken beide, dan moet je inloggen. Zie [README](README.md#setup). | verplicht* |
+| Variabele | CLI-flag | Beschrijving | Default |
+|---|---|---|---|
+| `MSISDN` | `--msisdn`/`-m` | Je telefoonnummer, bijv. `+31612345678`. | verplicht |
+| `AUTHORIZATION_TOKEN` | `--authorization-token`/`-a` | Sessietoken om bij Odido in te loggen. Ontbreekt hij, dan valt de app terug op `REFRESH_TOKEN`; ontbreken beide, dan moet je inloggen. Zie [README](README.md#setup). | verplicht* |
 
 ### OAuth om tot een AUTHORIZATION_TOKEN te komen
 
-| Variabele | Beschrijving | Default |
+| Variabele | CLI-flag | Beschrijving | Default |
 |---|---|---|
-| `REFRESH_TOKEN` | OAuth-code om automatisch een nieuw `AUTHORIZATION_TOKEN` te genereren. Wordt alleen gebruikt als `AUTHORIZATION_TOKEN` ontbreekt. **Let op dat deze tijdgevoelig en dus waarschijnlijk maar bij één startup werkt.** | - |
+| `REFRESH_TOKEN` | `--refresh-token`/`-r` | OAuth-code om automatisch een nieuw `AUTHORIZATION_TOKEN` te genereren. Wordt alleen gebruikt als `AUTHORIZATION_TOKEN` ontbreekt. **Let op dat deze tijdgevoelig en dus waarschijnlijk maar bij één startup werkt.** | - |
 
 ### Configureerbaar
 
-| Variabele | Beschrijving | Default |
-|---|---|---|
-| `ODIDO_BUYING_CODE` | Welke bundel wordt aangevraagd. | `A0DAY01` |
-| `MB_THRESHOLD` | Onder hoeveel MB een nieuwe bundel wordt aangevraagd. | `2000` |
+| Variabele | CLI-flag | Beschrijving | Default |
+|---|---|---|---|
+| `ODIDO_BUYING_CODE` | - | Welke bundel wordt aangevraagd. | `A0DAY01` |
+| `MB_THRESHOLD` | - | Onder hoeveel MB een nieuwe bundel wordt aangevraagd. | `2000` |
+| `RUN_ONCE` | `--once`/`-o` | Draai het programma één keer i.p.v. in een oneindige loop. | `false` |
 
 ### Check-interval
 
