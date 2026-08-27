@@ -11,7 +11,7 @@
 ### OAuth om tot een AUTHORIZATION_TOKEN te komen
 
 | Variabele | CLI-flag | Beschrijving | Default |
-|---|---|---|
+|---|---|---|---|
 | `REFRESH_TOKEN` | `--refresh-token`/`-r` | OAuth-code om automatisch een nieuw `AUTHORIZATION_TOKEN` te genereren. Wordt alleen gebruikt als `AUTHORIZATION_TOKEN` ontbreekt. **Let op dat deze tijdgevoelig en dus waarschijnlijk maar bij één startup werkt.** | - |
 
 ### Configureerbaar
