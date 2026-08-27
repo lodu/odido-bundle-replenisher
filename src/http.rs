@@ -4,8 +4,9 @@ use serde::de::DeserializeOwned;
 use std::time::Duration;
 use thiserror::Error;
 
-#[derive(Debug, Error)]
+const RETRY_DELAY_STEP_MS: u32 = 100;
 
+#[derive(Debug, Error)]
 pub enum HttpError {
     #[error("request failed: {0}")]
     Request(#[from] reqwest::Error),
@@ -62,7 +63,7 @@ fn request_with_retry<T: DeserializeOwned>(
                 eprintln!("request failed, retrying: {e}");
                 last_err = Some(e);
                 std::thread::sleep(Duration::from_millis(
-                    (retry_delay_stepsize * 100 * (attempt + 1)) as u64,
+                    (retry_delay_stepsize * RETRY_DELAY_STEP_MS * (attempt + 1)) as u64,
                 ));
             }
         }
