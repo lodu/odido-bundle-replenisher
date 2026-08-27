@@ -7,6 +7,9 @@ use models::{Bundle, BundlesResponse, SubscriptionsResource, SubscriptionsRespon
 use reqwest::blocking::Client;
 use reqwest::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE, HeaderMap, HeaderValue, USER_AGENT};
 
+const ZONE_COLOR_NL: &str = "NL";
+const KB_PER_MB: f64 = 1024.0;
+
 pub struct OdidoClient {
     client: Client,
     config: AuthenticatedConfig,
@@ -88,8 +91,8 @@ impl OdidoClient {
     fn calculate_mb_left(bundles: &[Bundle]) -> u32 {
         bundles
             .iter()
-            .filter(|bundle| bundle.zone_color == "NL")
-            .map(|bundle| bundle.remaining.value / 1024.0)
+            .filter(|bundle| bundle.zone_color == ZONE_COLOR_NL)
+            .map(|bundle| bundle.remaining.value / KB_PER_MB)
             .sum::<f64>()
             .floor() as u32
     }
