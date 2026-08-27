@@ -1,7 +1,7 @@
-# ODIDO Bundle Replenisher
+# Odido Bundle Replenisher
 > Rust rewrite van [TMobile-NL-Unlimited-Bundle-Automated](https://github.com/lodu/TMobile-NL-Unlimited-Bundle-Automated) met bijgevoegde logica van Guus' [Odido.Authenticator](https://github.com/GuusBackup/Odido.Authenticator/) & [TMobile.Api](https://github.com/GuusBackup/TMobile.Api)
 
-Vraag automatisch nieuwe Odido databundels aan als je bijna bij de daglimiet van je (fair-use) onbeperkte data-abonnement zit.
+Vraag automatisch nieuwe Odido databundels aan als je bijna bij de daglimiet van je (fair use) onbeperkte data-abonnement zit.
 
 ## Authorizatie Token verkrijgen
 1. Download de laatste [release](https://github.com/lodu/odido-bundle-replenisher/releases/latest) onder `Assets`.
