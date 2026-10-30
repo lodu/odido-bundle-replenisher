@@ -2,7 +2,7 @@ FROM rust:1.88-alpine3.21 AS builder
 
 WORKDIR /app
 
-RUN apk add --no-cache build-base cmake perl
+RUN apk add --no-cache build-base
 
 COPY Cargo.toml Cargo.lock ./
 COPY src ./src

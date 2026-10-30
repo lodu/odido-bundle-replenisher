@@ -20,6 +20,10 @@ pub enum HttpError {
     ServerError(reqwest::StatusCode, String),
 }
 
+pub fn init() {
+    let _ = rustls::crypto::ring::default_provider().install_default();
+}
+
 pub fn get_json<T: DeserializeOwned>(
     client: &Client,
     url: &str,
