@@ -6,7 +6,7 @@
 | Variabele | CLI-flag | Beschrijving | Default |
 |---|---|---|---|
 | `MSISDN` | `--msisdn`/`-m` | Je telefoonnummer, bijv. `+31612345678`. | verplicht |
-| `AUTHORIZATION_TOKEN` | `--authorization-token`/`-a` | Sessietoken om bij Odido in te loggen. Ontbreekt hij, dan valt de app terug op `REFRESH_TOKEN`; ontbreken beide, dan moet je inloggen. Zie [README](README.md#setup). | verplicht* |
+| `AUTHORIZATION_TOKEN` | `--authorization-token`/`-a` | Sessietoken om bij Odido in te loggen. Ontbreekt hij, dan valt de app terug op `REFRESH_TOKEN`; ontbreken beide, dan moet je inloggen. Zie [README](README.md#authorizatie-token-verkrijgen). | verplicht* |
 
 ### OAuth om tot een AUTHORIZATION_TOKEN te komen
 
@@ -32,7 +32,7 @@ Kies statisch óf dynamisch. Dynamisch checkt vaker zodra je nog weinig MB's ove
 | `DYNAMIC_INTERVAL_MB_THRESHOLD` | Dynamisch: onder hoeveel MB er sneller gecheckt wordt. | `4000` |
 | `DYNAMIC_INTERVAL_LOW` | Dynamisch: interval in minuten zodra je onder die grens zit. | `1` |
 | `DYNAMIC_INTERVAL_HIGH` | Dynamisch: interval in minuten zolang je erboven zit. | `10` |
-| `CHECK_INTERVAL` | Statisch: vast interval in minuten. Zet je deze, dan negeert de app de dynamische vars hieronder. | - |
+| `CHECK_INTERVAL` | Statisch: vast interval in minuten. Zet je deze, dan negeert de app de dynamische vars hierboven. | - |
 
 
 ### Praktisch nooit aanpassen
