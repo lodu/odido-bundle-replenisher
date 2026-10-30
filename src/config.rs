@@ -95,7 +95,11 @@ pub struct AuthenticatedConfig {
 }
 
 fn parse_env<T: std::str::FromStr>(key: &str) -> Option<T> {
-    std::env::var(key).ok()?.parse().ok()
+    std::env::var(key)
+        .ok()
+        .filter(|v| !v.is_empty())?
+        .parse()
+        .ok()
 }
 
 fn parse_env_with_default<T: std::str::FromStr>(key: &str, default: T) -> T {
