@@ -64,24 +64,19 @@ fn main() -> anyhow::Result<()> {
 
         let result = odido.replenish_if_needed();
         let mb_left: Option<u32> = match result {
-            Ok(is_replenished) => {
-                let mb_left = match is_replenished {
-                    IsReplenished::Replenished { mb_left } => {
-                        println!(
-                            "Nieuwe bundel succesvol aangevraagd, vanaf nu {mb_left} MB in je bundel."
-                        );
-                        mb_left
-                    }
-                    IsReplenished::NotReplenished {
-                        mb_left,
-                        mb_left_to_replenish,
-                    } => {
-                        println!(
-                            "Nog {mb_left} MB in de bundel. Replenishment mogelijk over {mb_left_to_replenish} MB."
-                        );
-                        mb_left
-                    }
-                };
+            Ok(IsReplenished::Replenished { mb_left }) => {
+                println!(
+                    "Nieuwe bundel succesvol aangevraagd, vanaf nu {mb_left} MB in je bundel."
+                );
+                Some(mb_left)
+            }
+            Ok(IsReplenished::NotReplenished {
+                mb_left,
+                mb_left_to_replenish,
+            }) => {
+                println!(
+                    "Nog {mb_left} MB in de bundel. Replenishment mogelijk over {mb_left_to_replenish} MB."
+                );
                 Some(mb_left)
             }
             Err(e) => {
@@ -94,12 +89,13 @@ fn main() -> anyhow::Result<()> {
         };
 
         match run_mode {
-            RunMode::Once => match mb_left {
-                Some(_) => {
-                    break Ok(());
+            RunMode::Once => {
+                if mb_left.is_none() {
+                    std::process::exit(1);
                 }
-                None => std::process::exit(1),
-            },
+
+                break Ok(());
+            }
             RunMode::Loop => {
                 let interval = interval_mode.determine_duration(mb_left.unwrap_or(0)); // Default naar laagste bij Dynamic
                 let sleep_for: Duration = interval.saturating_sub(started.elapsed());
