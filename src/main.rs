@@ -10,7 +10,7 @@ use std::io::{self, Write};
 use std::time::{Duration, Instant};
 
 use crate::config::StartupMode::{Authenticated, AuthorizationCode, LoginRequired};
-use crate::odido::IsReplenished;
+use crate::odido::{IsReplenished, OdidoError};
 
 fn main() -> anyhow::Result<()> {
     dotenvy::dotenv().ok();
@@ -91,6 +91,9 @@ fn main() -> anyhow::Result<()> {
                 Some(mb_left)
             }
             Err(e) => {
+                if matches!(e, OdidoError::Unauthorized) {
+                    return Err(e.into());
+                }
                 eprintln!("Fout bij bekijken (en eventueel aanvragen) bundels: {e:#?}");
                 None
             }

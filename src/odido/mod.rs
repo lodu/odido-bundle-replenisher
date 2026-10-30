@@ -6,6 +6,7 @@ use crate::http::{HttpError, get_json, post};
 use models::{Bundle, BundlesResponse, SubscriptionsResource, SubscriptionsResponse};
 use reqwest::blocking::Client;
 use reqwest::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE, HeaderMap, HeaderValue, USER_AGENT};
+use thiserror::Error;
 
 const ZONE_COLOR_NL: &str = "NL";
 const KB_PER_MB: f64 = 1024.0;
@@ -29,6 +30,24 @@ pub enum IsReplenished {
     Replenished {
         mb_left: u32,
     },
+}
+#[derive(Debug, Error)]
+pub enum OdidoError {
+    #[error("AUTHORIZATION_TOKEN ongeldig of verlopen, vraag een nieuwe aan.")]
+    Unauthorized,
+    #[error("onverwachte response: {0}")]
+    UnexpectedResponse(String),
+    #[error(transparent)]
+    Http(HttpError),
+}
+
+impl From<HttpError> for OdidoError {
+    fn from(e: HttpError) -> Self {
+        match e {
+            HttpError::Unauthorized(_) => OdidoError::Unauthorized,
+            other => OdidoError::Http(other),
+        }
+    }
 }
 
 impl OdidoClient {
@@ -54,7 +73,7 @@ impl OdidoClient {
         Ok(headers)
     }
 
-    fn resolve_subscription_url(&mut self) -> Result<String, HttpError> {
+    fn resolve_subscription_url(&mut self) -> Result<String, OdidoError> {
         if let Some(url) = &self.subscription_url {
             return Ok(url.clone());
         }
@@ -73,7 +92,7 @@ impl OdidoClient {
             .resources
             .first()
             .ok_or_else(|| {
-                HttpError::UnexpectedResponse(
+                OdidoError::UnexpectedResponse(
                     "Geen resources (LinkedSubscriptions) gevonden via Odido API.".into(),
                 )
             })?
@@ -93,7 +112,7 @@ impl OdidoClient {
             .find(|subscription| subscription.msisdn == self.config.msisdn)
             .map(|subscription| subscription.subscription_url.clone())
             .ok_or_else(|| {
-                HttpError::UnexpectedResponse(
+                OdidoError::UnexpectedResponse(
                     "Geen abonnement die opgegeven MSISDN matched.".into(),
                 )
             })?;
@@ -125,7 +144,7 @@ impl OdidoClient {
             .for_each(|code| println!("Alternatieve BuyingCode gevonden: {code}"));
     }
 
-    fn mbs_left(&mut self, discover_buying_code: DiscoverAltCodes) -> Result<u32, HttpError> {
+    fn mbs_left(&mut self, discover_buying_code: DiscoverAltCodes) -> Result<u32, OdidoError> {
         let url = self.resolve_subscription_url()?;
         let response: BundlesResponse = get_json(
             &self.client,
@@ -143,7 +162,7 @@ impl OdidoClient {
         Ok(Self::calculate_mb_left(&response.bundles))
     }
 
-    fn request_bundle(&mut self) -> Result<(), HttpError> {
+    fn request_bundle(&mut self) -> Result<(), OdidoError> {
         let url = self.resolve_subscription_url()?;
         let mut headers = self.auth_headers()?;
         headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
@@ -155,7 +174,7 @@ impl OdidoClient {
         Ok(())
     }
 
-    pub fn replenish_if_needed(&mut self) -> Result<IsReplenished, HttpError> {
+    pub fn replenish_if_needed(&mut self) -> Result<IsReplenished, OdidoError> {
         let mb_left = self.mbs_left(DiscoverAltCodes::Yes)?;
         if mb_left >= self.config.mb_threshold {
             return Ok(IsReplenished::NotReplenished {
@@ -221,5 +240,16 @@ mod calculate_mb_left {
         }];
 
         assert_eq!(OdidoClient::calculate_mb_left(bundles), 0);
+    }
+
+    #[cfg(test)]
+    mod odido_error {
+        use super::*;
+
+        #[test]
+        fn unauthorized_maps_to_domain() {
+            let error = OdidoError::from(HttpError::Unauthorized(String::new()));
+            assert!(matches!(error, OdidoError::Unauthorized));
+        }
     }
 }
