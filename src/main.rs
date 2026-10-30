@@ -18,6 +18,8 @@ fn main() -> anyhow::Result<()> {
     let cli: Cli = Cli::parse();
     let startup_mode = AuthenticatedConfig::from_env(cli)?;
 
+    http::init();
+
     let (mut odido, interval_mode, run_mode) = match startup_mode {
         LoginRequired(config) => {
             println!(
