@@ -1,7 +1,6 @@
-use reqwest::blocking::{Client, Response};
-use reqwest::header::{HeaderMap, InvalidHeaderValue};
+use nyquest::{BlockingClient, Body, Request, blocking::Response};
 use serde::de::DeserializeOwned;
-use std::time::Duration;
+use std::{convert::Infallible, time::Duration};
 use thiserror::Error;
 
 const RETRY_DELAY_STEP_MS: u32 = 100;
@@ -9,44 +8,43 @@ const RETRY_DELAY_STEP_MS: u32 = 100;
 #[derive(Debug, Error)]
 pub enum HttpError {
     #[error("request mislukt: {0}")]
-    Request(#[from] reqwest::Error),
-    #[error("foutieve HTTP header: {0}")]
-    Header(#[from] InvalidHeaderValue),
+    Request(#[from] nyquest::Error),
     #[error("na {0} niet-gelukt pogingen gestopt")]
     RetriesExhausted(u32),
     #[error("onverwachte response: {0}")]
     UnexpectedResponse(String),
     #[error("HTTP {0}: {1}")]
-    ServerError(reqwest::StatusCode, String),
+    ServerError(nyquest::StatusCode, String),
 }
 
 pub fn get_json<T: DeserializeOwned>(
-    client: &Client,
+    client: &BlockingClient,
     url: &str,
-    headers: HeaderMap,
     max_retries: u32,
     retry_delay_stepsize: u32,
 ) -> Result<T, HttpError> {
     request_with_retry(
-        || client.get(url).headers(headers.clone()).send(),
+        || client.request(Request::get(url.to_string())),
         max_retries,
         retry_delay_stepsize,
     )
 }
 
 pub fn post(
-    client: &Client,
+    client: &BlockingClient,
     url: &str,
-    headers: HeaderMap,
-    body: String,
+    body: Body<Infallible>,
 ) -> Result<Response, HttpError> {
-    let response = client.post(url).headers(headers).body(body).send()?;
+    let request = Request::post(url.to_string()).with_body(body);
+
+    let response = client.request(request)?;
+
     check_http_status(response)
 }
 
 fn check_http_status(response: Response) -> Result<Response, HttpError> {
     let status = response.status();
-    if status.is_success() {
+    if status.is_successful() {
         return Ok(response);
     }
 
@@ -55,7 +53,7 @@ fn check_http_status(response: Response) -> Result<Response, HttpError> {
 }
 
 fn request_with_retry<T: DeserializeOwned>(
-    send: impl Fn() -> reqwest::Result<Response>,
+    send: impl Fn() -> Result<Response, nyquest::Error>,
     max_retries: u32,
     retry_delay_stepsize: u32,
 ) -> Result<T, HttpError> {

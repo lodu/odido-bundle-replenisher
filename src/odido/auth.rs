@@ -3,8 +3,8 @@ use crate::http::post;
 use anyhow::{Context, Result};
 use base64::{Engine as _, engine::general_purpose};
 use fernet::Fernet;
-use reqwest::blocking::Client;
-use reqwest::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE, HeaderMap, HeaderName, HeaderValue};
+use nyquest::ClientBuilder;
+use nyquest::blocking::Body;
 use serde::Deserialize;
 
 #[derive(Deserialize)]
@@ -44,48 +44,45 @@ impl LoginConfig {
 }
 
 pub fn create_authorization_token(config: AuthorizationCodeConfig) -> Result<String> {
-    let mut headers = HeaderMap::new();
-    headers.insert(
-        ACCEPT,
-        HeaderValue::from_static(
+    let auth_http_client = ClientBuilder::default()
+        .with_header(
+            "Accept",
             "application/json,application/vnd.capi.tmobile.nl.createtoken.v1+json",
-        ),
-    );
-    headers.insert(
-        CONTENT_TYPE,
-        HeaderValue::from_static("application/vnd.capi.tmobile.nl.createtoken.v1+json"),
-    );
-    headers.insert(
-        AUTHORIZATION,
-        HeaderValue::from_str(&format!(
-            "Basic {}",
-            general_purpose::STANDARD.encode(format!("{}:", config.odido_oauth_key).as_bytes())
-        ))?,
-    );
-    headers.insert(
-        HeaderName::from_static("grant_type"),
-        HeaderValue::from_static("authorization_code"),
+        )
+        .with_header(
+            "Authorization",
+            format!(
+                "Basic {}",
+                general_purpose::STANDARD.encode(format!("{}:", config.odido_oauth_key).as_bytes())
+            ),
+        )
+        .with_header("grant_type", "authorization_code")
+        .build_blocking()?;
+
+    let body = Body::text(
+        serde_json::json!({ "AuthorizationCode": config.authorization_code }).to_string(),
+        "application/vnd.capi.tmobile.nl.createtoken.v1+json",
     );
 
     let response = post(
-        &Client::new(),
+        &auth_http_client,
         &format!("{}/createtoken", config.odido_api_url),
-        headers,
-        serde_json::json!({ "AuthorizationCode": config.authorization_code }).to_string(),
+        body,
     )?;
 
-    if let Some(error) = response.headers().get("ErrorText") {
+    let error_header = response.get_header("ErrorText")?;
+
+    if !error_header.is_empty() {
         anyhow::bail!(
             "Odido kon geen authorization token maken. Let op dat de REFRESH_TOKEN tijdgevoelig is: {}",
-            error.to_str()?
+            error_header.join(", ")
         );
     }
 
     response
-        .headers()
-        .get("Accesstoken")
+        .get_header("Accesstoken")
         .context("Odido gaf geen AUTHORIZATION_TOKEN terug")?
-        .to_str()
+        .first()
+        .cloned()
         .context("Odido gaf een ongeldige AUTHORIZATION_TOKEN terug")
-        .map(str::to_owned)
 }

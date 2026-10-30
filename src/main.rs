@@ -8,6 +8,7 @@ use config::{AuthenticatedConfig, AuthorizationCodeConfig, Cli, RunMode};
 use odido::{OdidoClient, auth::create_authorization_token};
 use std::io::{self, Write};
 use std::time::{Duration, Instant};
+use url::Url;
 
 use crate::config::StartupMode::{Authenticated, AuthorizationCode, LoginRequired};
 use crate::odido::IsReplenished;
@@ -17,6 +18,8 @@ fn main() -> anyhow::Result<()> {
 
     let cli: Cli = Cli::parse();
     let startup_mode = AuthenticatedConfig::from_env(cli)?;
+
+    nyquest_preset::register();
 
     let (mut odido, interval_mode, run_mode) = match startup_mode {
         LoginRequired(config) => {
@@ -34,7 +37,7 @@ fn main() -> anyhow::Result<()> {
 
             let answer = answer.trim();
 
-            let url = reqwest::Url::parse(answer).context("Ingevoerde URL is geen URL.")?;
+            let url = Url::parse(answer).context("Ingevoerde URL is geen URL.")?;
             let token = url
                 .query_pairs()
                 .find_map(|(name, value)| (name == "token").then_some(value))

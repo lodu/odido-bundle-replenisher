@@ -4,14 +4,14 @@ mod models;
 use crate::config::AuthenticatedConfig;
 use crate::http::{HttpError, get_json, post};
 use models::{Bundle, BundlesResponse, SubscriptionsResource, SubscriptionsResponse};
-use reqwest::blocking::Client;
-use reqwest::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE, HeaderMap, HeaderValue, USER_AGENT};
+use nyquest::blocking::Body;
+use nyquest::{BlockingClient, ClientBuilder};
 
 const ZONE_COLOR_NL: &str = "NL";
 const KB_PER_MB: f64 = 1024.0;
 
 pub struct OdidoClient {
-    client: Client,
+    http_client: BlockingClient,
     config: AuthenticatedConfig,
     subscription_url: Option<String>,
 }
@@ -33,25 +33,21 @@ pub enum IsReplenished {
 
 impl OdidoClient {
     pub fn new(config: AuthenticatedConfig) -> Self {
+        let http_client = ClientBuilder::default()
+            .user_agent(&config.odido_user_agent)
+            .with_header(
+                "Authorization",
+                format!("Bearer {}", config.authorization_token),
+            )
+            .with_header("Accept", "application/json")
+            .build_blocking()
+            .expect("Kan HTTP-client niet bouwen.");
+
         Self {
-            client: Client::new(),
+            http_client,
             config,
             subscription_url: None,
         }
-    }
-
-    fn auth_headers(&self) -> Result<HeaderMap, HttpError> {
-        let mut headers = HeaderMap::new();
-        headers.insert(
-            USER_AGENT,
-            HeaderValue::from_str(&self.config.odido_user_agent)?,
-        );
-        headers.insert(ACCEPT, HeaderValue::from_static("application/json"));
-        headers.insert(
-            AUTHORIZATION,
-            HeaderValue::from_str(&format!("Bearer {}", self.config.authorization_token))?,
-        );
-        Ok(headers)
     }
 
     fn resolve_subscription_url(&mut self) -> Result<String, HttpError> {
@@ -60,12 +56,11 @@ impl OdidoClient {
         }
 
         let resource: SubscriptionsResource = get_json(
-            &self.client,
+            &self.http_client,
             &format!(
                 "{}/account/current?resourcelabel=LinkedSubscriptions",
                 self.config.odido_api_url
             ),
-            self.auth_headers()?,
             self.config.http_max_retries,
             self.config.http_retry_delay_step,
         )?;
@@ -80,9 +75,8 @@ impl OdidoClient {
             .url;
 
         let response: SubscriptionsResponse = get_json(
-            &self.client,
+            &self.http_client,
             subscriptions_url,
-            self.auth_headers()?,
             self.config.http_max_retries,
             self.config.http_retry_delay_step,
         )?;
@@ -128,9 +122,8 @@ impl OdidoClient {
     fn mbs_left(&mut self, discover_buying_code: DiscoverAltCodes) -> Result<u32, HttpError> {
         let url = self.resolve_subscription_url()?;
         let response: BundlesResponse = get_json(
-            &self.client,
+            &self.http_client,
             &url,
-            self.auth_headers()?,
             self.config.http_max_retries,
             self.config.http_retry_delay_step,
         )?;
@@ -145,13 +138,13 @@ impl OdidoClient {
 
     fn request_bundle(&mut self) -> Result<(), HttpError> {
         let url = self.resolve_subscription_url()?;
-        let mut headers = self.auth_headers()?;
-        headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
 
-        let body =
+        let body = Body::text(
             serde_json::json!({ "Bundles": [{ "BuyingCode": &self.config.odido_buying_code }] })
-                .to_string();
-        post(&self.client, &url, headers, body)?;
+                .to_string(),
+            "application/json",
+        );
+        post(&self.http_client, &url, body)?;
         Ok(())
     }
 
