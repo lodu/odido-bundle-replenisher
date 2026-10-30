@@ -94,102 +94,132 @@ pub struct AuthenticatedConfig {
     pub discover_buying_code: bool,
 }
 
-fn parse_env<T: std::str::FromStr>(key: &str) -> Option<T> {
-    std::env::var(key).ok()?.parse().ok()
+fn parse_env<T>(key: &str) -> Result<Option<T>>
+where
+    T: std::str::FromStr,
+    T::Err: std::fmt::Display,
+{
+    parse_value(key, std::env::var(key).ok())
 }
 
-fn parse_env_with_default<T: std::str::FromStr>(key: &str, default: T) -> T {
-    parse_env(key).unwrap_or(default)
-}
+// tests hoeven nu geen globale env vars te zetten.
+fn parse_value<T>(key: &str, value: Option<String>) -> Result<Option<T>>
+where
+    T: std::str::FromStr,
+    T::Err: std::fmt::Display,
+{
+    let Some(value) = value else {
+        return Ok(None);
+    };
 
-fn determine_interval_config() -> IntervalMode {
-    if let Some(minutes) = parse_env::<u64>("CHECK_INTERVAL") {
-        return IntervalMode::Static(Duration::from_secs(minutes * 60));
+    if value.is_empty() {
+        return Ok(None);
     }
 
-    let threshold_mb: u32 = parse_env_with_default("DYNAMIC_INTERVAL_MB_THRESHOLD", 4000);
-    let interval_below_threshold_minutes: u64 = parse_env_with_default("DYNAMIC_INTERVAL_LOW", 1);
-    let interval_above_threshold_minutes: u64 = parse_env_with_default("DYNAMIC_INTERVAL_HIGH", 10);
+    match value.parse() {
+        Ok(parsed) => Ok(Some(parsed)),
+        Err(e) => anyhow::bail!("{key}={value} is ongeldig: {e}"),
+    }
+}
 
-    IntervalMode::Dynamic {
+fn parse_env_with_default<T>(key: &str, default: T) -> Result<T>
+where
+    T: std::str::FromStr,
+    T::Err: std::fmt::Display,
+{
+    Ok(parse_env(key)?.unwrap_or(default))
+}
+
+fn determine_interval_config() -> Result<IntervalMode> {
+    if let Some(minutes) = parse_env::<u64>("CHECK_INTERVAL")? {
+        if minutes < 1 {
+            anyhow::bail!("CHECK_INTERVAL (minuten) moet minimaal 1 zijn.");
+        }
+        return Ok(IntervalMode::Static(Duration::from_secs(minutes * 60)));
+    }
+
+    let threshold_mb: u32 = parse_env_with_default("DYNAMIC_INTERVAL_MB_THRESHOLD", 4000)?;
+    let interval_below_threshold_minutes: u64 = parse_env_with_default("DYNAMIC_INTERVAL_LOW", 1)?;
+    let interval_above_threshold_minutes: u64 =
+        parse_env_with_default("DYNAMIC_INTERVAL_HIGH", 10)?;
+
+    Ok(IntervalMode::Dynamic {
         interval_below_threshold: Duration::from_secs(interval_below_threshold_minutes * 60),
         interval_above_threshold: Duration::from_secs(interval_above_threshold_minutes * 60),
         threshold: threshold_mb,
-    }
+    })
 }
 
 impl AuthenticatedConfig {
     pub fn from_env(cli: Cli) -> Result<StartupMode> {
-        let odido_url: String = parse_env_with_default("ODIDO_URL", "https://odido.nl".to_owned());
+        let odido_url: String = parse_env_with_default("ODIDO_URL", "https://odido.nl".to_owned())?;
         let odido_fernet_key: String = parse_env_with_default(
             "ODIDO_FERNET_KEY",
             "afIqRZm6iSev4zWysNGAjR6fCrOMf5GQqhKFfmXkgOU".to_owned(),
-        );
+        )?;
         let odido_oauth_key: String =
-            parse_env_with_default("ODIDO_OAUTH_KEY", "9havvat6hm0b962i".to_owned());
+            parse_env_with_default("ODIDO_OAUTH_KEY", "9havvat6hm0b962i".to_owned())?;
 
         let odido_api_url: String =
-            parse_env_with_default("ODIDO_API_URL", "https://capi.odido.nl".to_owned());
+            parse_env_with_default("ODIDO_API_URL", "https://capi.odido.nl".to_owned())?;
 
-        let authorization_token: String = match cli
-            .authorization_token
-            .or_else(|| parse_env::<String>("AUTHORIZATION_TOKEN"))
-        {
-            Some(token) => token,
-            None => match cli
-                .refresh_token
-                .or_else(|| parse_env::<String>("REFRESH_TOKEN"))
-            {
-                Some(refresh_token) => {
-                    return Ok(StartupMode::AuthorizationCode(AuthorizationCodeConfig {
-                        odido_api_url,
-                        authorization_code: refresh_token,
-                        odido_oauth_key,
-                    }));
-                }
-                None => {
-                    return Ok(StartupMode::LoginRequired(LoginConfig {
-                        odido_url,
-                        odido_api_url,
-                        odido_fernet_key,
-                        odido_oauth_key,
-                    }));
-                }
-            },
+        let env_token = parse_env("AUTHORIZATION_TOKEN")?;
+
+        let Some(authorization_token) = cli.authorization_token.or(env_token) else {
+            let env_refresh_token = parse_env("REFRESH_TOKEN")?;
+
+            if let Some(refresh_token) = cli.refresh_token.or(env_refresh_token) {
+                return Ok(StartupMode::AuthorizationCode(AuthorizationCodeConfig {
+                    odido_api_url,
+                    authorization_code: refresh_token,
+                    odido_oauth_key,
+                }));
+            }
+
+            return Ok(StartupMode::LoginRequired(LoginConfig {
+                odido_url,
+                odido_api_url,
+                odido_fernet_key,
+                odido_oauth_key,
+            }));
         };
+
+        let env_msisdn = parse_env("MSISDN")?;
 
         let msisdn = cli
             .msisdn
-            .or_else(|| parse_env::<String>("MSISDN"))
+            .or(env_msisdn)
             .context("MSISDN niet gevonden in env")?;
 
         let odido_user_agent: String = parse_env_with_default(
             "ODIDO_USER_AGENT",
             "ODIDO 8.0.0 (Android 12; 12)".to_owned(),
-        );
+        )?;
 
         let odido_buying_code: String =
-            parse_env_with_default("ODIDO_BUYING_CODE", "A0DAY01".to_owned());
+            parse_env_with_default("ODIDO_BUYING_CODE", "A0DAY01".to_owned())?;
 
-        let mb_threshold = parse_env_with_default("MB_THRESHOLD", 2000);
+        let mb_threshold = parse_env_with_default("MB_THRESHOLD", 2000)?;
 
-        let http_max_retries = parse_env_with_default("HTTP_MAX_RETRIES", 10);
+        let http_max_retries = parse_env_with_default("HTTP_MAX_RETRIES", 10)?;
 
-        let http_retry_delay_step = parse_env_with_default("HTTP_RETRY_DELAY_STEP", 10);
+        let http_retry_delay_step = parse_env_with_default("HTTP_RETRY_DELAY_STEP", 10)?;
 
-        let run_mode = if cli.once || parse_env_with_default("RUN_ONCE", false) {
+        let run_mode = if cli.once || parse_env_with_default("RUN_ONCE", false)? {
             RunMode::Once
         } else {
             RunMode::Loop
         };
 
         let discover_buying_code =
-            !cli.no_discover_buying_code && parse_env_with_default("DISCOVER_BUYING_CODE", true);
+            !cli.no_discover_buying_code && parse_env_with_default("DISCOVER_BUYING_CODE", true)?;
+
+        let interval_mode = determine_interval_config()?;
 
         Ok(StartupMode::Authenticated(AuthenticatedConfig {
             authorization_token,
             msisdn,
-            interval_mode: determine_interval_config(),
+            interval_mode,
             odido_api_url,
             odido_user_agent,
             odido_buying_code,
@@ -251,6 +281,38 @@ mod determine_duration {
         assert_eq!(
             static_interval.determine_duration(0),
             Duration::from_secs(42)
+        );
+    }
+}
+
+#[cfg(test)]
+mod parse_value {
+    use super::*;
+
+    #[test]
+    fn missing() {
+        assert!(parse_value::<u32>("KEY", None).unwrap().is_none());
+    }
+
+    #[test]
+    fn empty() {
+        assert!(
+            parse_value::<String>("KEY", Some(String::new()))
+                .unwrap()
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn invalid() {
+        assert!(parse_value::<bool>("KEY", Some("True".into())).is_err());
+    }
+
+    #[test]
+    fn valid() {
+        assert_eq!(
+            parse_value::<u32>("KEY", Some("42".into())).unwrap(),
+            Some(42)
         );
     }
 }
