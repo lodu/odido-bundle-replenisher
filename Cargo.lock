@@ -733,6 +733,7 @@ dependencies = [
  "clap",
  "dotenvy",
  "fernet",
+ "http",
  "reqwest",
  "rustls",
  "serde",
