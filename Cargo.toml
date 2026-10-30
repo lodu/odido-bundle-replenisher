@@ -11,11 +11,17 @@ publish = false
 [dependencies]
 anyhow = "1.0.104"
 base64 = "0.23.1"
-clap = { version = "4.6.6", features = ["derive"] }
+clap = { version = "4.6.7", features = ["derive"] }
 dotenvy = "0.15.7"
-fernet = "0.2.2"
-openssl = { version = "0.10", features = ["vendored"] }
-reqwest = { version = "0.13.4", features = ["json", "blocking"] }
+fernet = { version = "0.2.2", default-features = false, features = ["rustcrypto"] }
+reqwest = { version = "0.13.5", features = ["json", "blocking"] }
 serde = { version = "1.0.229", features = ["derive"] }
-serde_json = "1.0.151"
-thiserror = "2.0.20"
+serde_json = "1.0.154"
+thiserror = "2.0.21"
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+strip = true
+panic = "abort"
