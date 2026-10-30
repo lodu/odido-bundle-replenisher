@@ -17,11 +17,6 @@ pub struct OdidoClient {
     subscription_url: Option<String>,
 }
 
-enum DiscoverAltCodes {
-    Yes,
-    No,
-}
-
 pub enum IsReplenished {
     NotReplenished {
         mb_left: u32,
@@ -144,7 +139,7 @@ impl OdidoClient {
             .for_each(|code| println!("Alternatieve BuyingCode gevonden: {code}"));
     }
 
-    fn mbs_left(&mut self, discover_buying_code: DiscoverAltCodes) -> Result<u32, OdidoError> {
+    fn bundles(&mut self) -> Result<Vec<Bundle>, OdidoError> {
         let url = self.resolve_subscription_url()?;
         let response: BundlesResponse = get_json(
             &self.client,
@@ -154,12 +149,7 @@ impl OdidoClient {
             self.config.http_retry_delay_step,
         )?;
 
-        if self.config.discover_buying_code && matches!(discover_buying_code, DiscoverAltCodes::Yes)
-        {
-            self.find_alt_buying_codes(&response.bundles);
-        }
-
-        Ok(Self::calculate_mb_left(&response.bundles))
+        Ok(response.bundles)
     }
 
     fn request_bundle(&mut self) -> Result<(), OdidoError> {
@@ -175,7 +165,12 @@ impl OdidoClient {
     }
 
     pub fn replenish_if_needed(&mut self) -> Result<IsReplenished, OdidoError> {
-        let mb_left = self.mbs_left(DiscoverAltCodes::Yes)?;
+        let bundles = self.bundles()?;
+        if self.config.discover_buying_code {
+            self.find_alt_buying_codes(&bundles);
+        }
+
+        let mb_left = Self::calculate_mb_left(&bundles);
         if mb_left >= self.config.mb_threshold {
             return Ok(IsReplenished::NotReplenished {
                 mb_left,
@@ -183,7 +178,7 @@ impl OdidoClient {
             });
         }
         self.request_bundle()?;
-        let mb_left_after: u32 = self.mbs_left(DiscoverAltCodes::No)?;
+        let mb_left_after = Self::calculate_mb_left(&self.bundles()?);
         Ok(IsReplenished::Replenished {
             mb_left: mb_left_after,
         })

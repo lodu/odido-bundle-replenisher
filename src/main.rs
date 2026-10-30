@@ -2,7 +2,6 @@ mod config;
 mod http;
 mod odido;
 
-use anyhow::Context;
 use clap::Parser;
 use config::{AuthenticatedConfig, AuthorizationCodeConfig, Cli, RunMode};
 use odido::{OdidoClient, auth::create_authorization_token};
@@ -36,25 +35,20 @@ fn main() -> anyhow::Result<()> {
 
             let answer = answer.trim();
 
-            let url = reqwest::Url::parse(answer).context("Ingevoerde URL is geen URL.")?;
-            let token = url
-                .query_pairs()
-                .find_map(|(name, value)| (name == "token").then_some(value))
-                .context("Ingevoerde URL bevat geen token.")?;
-
-            let authorization_code = config.authorization_code(&token)?;
+            let authorization_code = config.extract_authorization_code(answer)?;
             let authorization_token = create_authorization_token(AuthorizationCodeConfig {
                 odido_api_url: config.odido_api_url,
                 authorization_code,
                 odido_oauth_key: config.odido_oauth_key,
             })?;
-            println!("\n\n\n\nAUTHORIZATION_TOKEN={authorization_token}");
+            print_token(&authorization_token);
 
             return Ok(());
         }
         AuthorizationCode(config) => {
             let authorization_token = create_authorization_token(config)?;
-            println!("\n\n\n\nAUTHORIZATION_TOKEN={authorization_token}");
+            print_token(&authorization_token);
+
             return Ok(());
         }
 
@@ -70,24 +64,19 @@ fn main() -> anyhow::Result<()> {
 
         let result = odido.replenish_if_needed();
         let mb_left: Option<u32> = match result {
-            Ok(is_replenished) => {
-                let mb_left = match is_replenished {
-                    IsReplenished::Replenished { mb_left } => {
-                        println!(
-                            "Nieuwe bundel succesvol aangevraagd, vanaf nu {mb_left} MB in je bundel."
-                        );
-                        mb_left
-                    }
-                    IsReplenished::NotReplenished {
-                        mb_left,
-                        mb_left_to_replenish,
-                    } => {
-                        println!(
-                            "Nog {mb_left} MB in de bundel. Replenishment mogelijk over {mb_left_to_replenish} MB."
-                        );
-                        mb_left
-                    }
-                };
+            Ok(IsReplenished::Replenished { mb_left }) => {
+                println!(
+                    "Nieuwe bundel succesvol aangevraagd, vanaf nu {mb_left} MB in je bundel."
+                );
+                Some(mb_left)
+            }
+            Ok(IsReplenished::NotReplenished {
+                mb_left,
+                mb_left_to_replenish,
+            }) => {
+                println!(
+                    "Nog {mb_left} MB in de bundel. Replenishment mogelijk over {mb_left_to_replenish} MB."
+                );
                 Some(mb_left)
             }
             Err(e) => {
@@ -100,12 +89,13 @@ fn main() -> anyhow::Result<()> {
         };
 
         match run_mode {
-            RunMode::Once => match mb_left {
-                Some(_) => {
-                    break Ok(());
+            RunMode::Once => {
+                if mb_left.is_none() {
+                    std::process::exit(1);
                 }
-                None => std::process::exit(1),
-            },
+
+                break Ok(());
+            }
             RunMode::Loop => {
                 let interval = interval_mode.determine_duration(mb_left.unwrap_or(0)); // Default naar laagste bij Dynamic
                 let sleep_for: Duration = interval.saturating_sub(started.elapsed());
@@ -113,4 +103,8 @@ fn main() -> anyhow::Result<()> {
             }
         }
     }
+}
+
+fn print_token(authorization_token: &str) {
+    println!("\n\n\n\nAUTHORIZATION_TOKEN={authorization_token}");
 }

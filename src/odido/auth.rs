@@ -25,11 +25,17 @@ impl LoginConfig {
         ))
     }
 
-    pub fn authorization_code(&self, encrypted_login_response: &str) -> Result<String> {
+    pub fn extract_authorization_code(&self, url: &str) -> Result<String> {
+        let url = reqwest::Url::parse(url).context("Ingevoerde URL is geen URL.")?;
+        let token = url
+            .query_pairs()
+            .find_map(|(name, value)| (name == "token").then_some(value))
+            .context("Ingevoerde URL bevat geen token.")?;
+
         let fernet = Fernet::new(&self.odido_fernet_key).context("Ongeldige odido_fernet_key")?;
         let login_response: LoginResponse = serde_json::from_slice(
             &fernet
-                .decrypt(encrypted_login_response)
+                .decrypt(&token)
                 .context("Odido-loginresponse kon niet worden decrypt.")?,
         )
         .context("Decrypte Odido loginresponse bevat geen valide JSON.")?;
